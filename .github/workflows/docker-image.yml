@@ -9,12 +9,32 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      packages: write  # allow pushing to GHCR
+      contents: write  # needed to fetch and create tags
+      packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # important! needed to get tags
+
+      - name: Get latest version tag
+        id: get_tag
+        run: |
+          # Get latest tag that matches 0.0.X format
+          latest_tag=$(git tag --list '0.0.*' | sort -V | tail -n1)
+          echo "Latest tag: $latest_tag"
+          
+          if [ -z "$latest_tag" ]; then
+            new_tag="0.0.1"
+          else
+            patch=$(echo "$latest_tag" | cut -d. -f3)
+            new_patch=$((patch + 1))
+            new_tag="0.0.$new_patch"
+          fi
+
+          echo "New tag: $new_tag"
+          echo "tag=$new_tag" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -32,4 +52,13 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/arthurtolley/eodt:latest
+          tags: |
+            ghcr.io/arthurtolley/eodt:${{ steps.get_tag.outputs.tag }}
+            ghcr.io/arthurtolley/eodt:latest
+
+      - name: Create Git tag
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag ${{ steps.get_tag.outputs.tag }}
+          git push origin ${{ steps.get_tag.outputs.tag }}
