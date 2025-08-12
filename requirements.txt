@@ -11,3 +11,6 @@ matplotlib
 jupyter
 pytest
 httpx
+earthengine-api
+rtree
+opencv-python

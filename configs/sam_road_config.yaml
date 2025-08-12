@@ -1,0 +1,41 @@
+# configs/sam_road_config.yaml
+
+# Dataset Configuration
+DATASET_NAME: 'spacenet' # Or 'cityscale', depending on your data
+IMAGE_SIZE: 400          # Example: 400 for Spacenet, 2048 for Cityscale
+PATCH_SIZE: 256
+SAMPLE_MARGIN: 0         # Or 64 for Cityscale
+
+# Training Configuration
+BATCH_SIZE: 64
+DATA_WORKER_NUM: 4       # Number of CPU workers for data loading
+TRAIN_EPOCHS: 30
+BASE_LR: 0.001
+PRECISION: 16            # 16-bit or 32-bit training precision (for PyTorch Lightning)
+
+# Model Configuration
+SAM_MODEL_TYPE: 'vit_b'  # 'vit_b', 'vit_l', 'vit_h'
+SAM_CHECKPOINT_PATH: '/Users/arthur/Documents/coding/EODT/ckpts/sam_vit_b_01ec64.pth' # **Crucial: Download this!**
+FREEZE_ENCODER: False    # Whether to freeze the SAM image encoder weights
+ENCODER_LR_FACTOR: 0.1   # Learning rate multiplier for the encoder if not frozen
+ENCODER_LORA: False      # Use Low-Rank Adaptation for encoder fine-tuning
+LORA_RANK: 4             # Rank for LoRA if enabled
+
+# Loss Configuration
+USE_FOCAL_LOSS: False    # Use Focal Loss for masks instead of BCEWithLogitsLoss
+USE_SAM_DECODER: False   # Use SAM's MaskDecoder or a simpler ConvTranspose decoder
+
+# TopoNet Configuration
+TOPO_SAMPLE_NUM: 128     # Number of points to sample per patch for topology
+TOPONET_VERSION: 'normal' # 'normal', 'no_transformer', 'no_tgt_features', 'no_offset'
+
+# Inference Configuration (for `predict.py` later)
+INFER_BATCH_SIZE: 64
+INFER_PATCHES_PER_EDGE: 16
+ITSC_THRESHOLD: 0.195    # Intersection threshold
+ROAD_THRESHOLD: 0.341    # Road mask threshold
+TOPO_THRESHOLD: 0.705    # Topology prediction threshold
+ITSC_NMS_RADIUS: 8       # Non-Maximum Suppression radius for intersections
+ROAD_NMS_RADIUS: 16      # Non-Maximum Suppression radius for roads
+NEIGHBOR_RADIUS: 64      # Radius for finding neighbors in TopoNet
+MAX_NEIGHBOR_QUERIES: 16 # Max neighbors to consider for topology

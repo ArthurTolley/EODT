@@ -89,3 +89,9 @@ instance/
 *.bak
 *.tmp
 *.orig
+
+# Others
+wandb
+tmp
+.DS_Store
+data/training
