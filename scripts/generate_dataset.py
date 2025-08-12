@@ -133,6 +133,7 @@ def main():
         start_lon=config['start_lon'],
         end_lon=config['end_lon'],
         scale=config['scale'],
+        satellite_config=config['satellite_config']
     )
     logging.info(f"Processing area '{config_name}'. Split into {len(boxes)} bounding boxes.")
 

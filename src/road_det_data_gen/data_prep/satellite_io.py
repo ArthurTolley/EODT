@@ -168,10 +168,25 @@ def slice_geotiff_image(tif_path, output_folder, tile_size=(512, 512), overlap=0
     return tile_coords
 
 def convert_bbox_3857_to_4326(bounds):
+    """
+    Convert bounding box from EPSG:3857 to EPSG:4326.
+    This function is robust to receiving either a rasterio BoundingBox object
+    or a plain tuple.
+    """
     transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
-    left, bottom, right, top = bounds.left, bounds.bottom, bounds.right, bounds.top
+
+    # Check if the 'bounds' object has attributes like '.left'
+    # If not, treat it as a simple tuple and unpack it.
+    if hasattr(bounds, 'left'):
+        left, bottom, right, top = bounds.left, bounds.bottom, bounds.right, bounds.top
+    else:
+        # It's a plain tuple, so unpack directly
+        left, bottom, right, top = bounds
+
+    # Unpack and convert coordinates
     lon_min, lat_min = transformer.transform(left, bottom)
     lon_max, lat_max = transformer.transform(right, top)
+
     return (lat_min, lat_max, lon_min, lon_max)
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -182,25 +197,44 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-def estimate_image_bytes(start_lat, start_lon, end_lat, end_lon, scale, bands=3):
+def estimate_image_bytes(start_lat, start_lon, end_lat, end_lon, scale, satellite_config):
+    """
+    Estimates the size of a satellite image download in bytes, now aware of satellite type.
+    """
+    sat_type = satellite_config.get('type', 'S2').upper()
+    bands = 2 if sat_type == 'S1' else 3 # Use 2 bands for S1, 3 for S2
+
     width_m = haversine(start_lat, start_lon, start_lat, end_lon) * 1000
     height_m = haversine(start_lat, start_lon, end_lat, start_lon) * 1000
     width_px, height_px = width_m / scale, height_m / scale
-    # GEE GeoTIFFs are often compressed, this factor accounts for that
-    return (width_px * height_px * bands * 4) * 2.0 
 
-def split_bbox_if_needed(start_lat, end_lat, start_lon, end_lon, scale, max_bytes=50331648):
-    est_bytes = estimate_image_bytes(start_lat, start_lon, end_lat, end_lon, scale)
+    # Sentinel-1 data is often float32 (4 bytes), S2 is int16 (2 bytes) before processing
+    bytes_per_band = 4 if sat_type == 'S1' else 2
+
+    # A correction factor helps account for compression and metadata overhead in the GeoTIFF
+    correction_factor = 4.0
+
+    return (width_px * height_px * bands * bytes_per_band) * correction_factor
+
+def split_bbox_if_needed(start_lat, end_lat, start_lon, end_lon, scale, satellite_config, max_bytes=50331648):
+    """
+    Splits a bounding box into smaller chunks if the estimated download size is too large.
+    """
+    # Pass satellite_config to the estimation function
+    est_bytes = estimate_image_bytes(start_lat, start_lon, end_lat, end_lon, scale, satellite_config)
+
     if est_bytes <= max_bytes:
         return [(start_lat, end_lat, start_lon, end_lon)]
 
     factor = math.ceil((est_bytes / max_bytes) ** 0.5)
+    logging.info(f"Estimated size {est_bytes/1e6:.2f}MB > {max_bytes/1e6:.2f}MB. Splitting into {factor}x{factor} boxes.")
+    
     lat_step = (end_lat - start_lat) / factor
     lon_step = (end_lon - start_lon) / factor
 
     boxes = []
-    for i in range(factor):
-        for j in range(factor):
+    for i in range(int(factor)):
+        for j in range(int(factor)):
             boxes.append((
                 start_lat + i * lat_step, start_lat + (i + 1) * lat_step,
                 start_lon + j * lon_step, start_lon + (j + 1) * lon_step
