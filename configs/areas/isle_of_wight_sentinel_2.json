@@ -1,0 +1,13 @@
+{
+    "start_lat":  50.57025641035381,
+    "end_lat":  50.76783878651682,
+    "start_lon":  -1.6041213533835048,
+    "end_lon":  -1.0658467787742154,
+    "scale": 10,
+    "pixels": 512,
+    "overlap_pixels": 0,
+    "satellite_config": {
+        "type": "S2",
+        "cloud_cover": 10
+    }
+}

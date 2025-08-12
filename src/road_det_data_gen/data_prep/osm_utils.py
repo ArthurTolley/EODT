@@ -5,7 +5,7 @@ from subprocess import Popen
 from time import sleep
 from typing import List, Tuple, Dict, Any
 from collections import defaultdict
-from app.data_prep.geo_utils import graphInsert, graphDensify, graph2RegionCoordinate, graphGroundTruthPreProcess, graphVis2048Segmentation
+from src.road_det_data_gen.data_prep.geo_utils import graphInsert, graphDensify, graph2RegionCoordinate, graphGroundTruthPreProcess, graphVis2048Segmentation
 import pickle
 import json
 import sys

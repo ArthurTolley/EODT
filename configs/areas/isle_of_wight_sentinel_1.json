@@ -5,5 +5,9 @@
     "end_lon":  -1.0658467787742154,
     "scale": 10,
     "pixels": 512,
-    "overlap_pixels": 64
+    "overlap_pixels": 0,
+    "satellite_config": {
+        "type": "S1",
+        "orbit_pass": "ASCENDING"
+    }
 }
