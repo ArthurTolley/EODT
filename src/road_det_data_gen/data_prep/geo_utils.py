@@ -209,46 +209,66 @@ def graph2RegionCoordinate(
 
 
 def graphVis2048Segmentation(
-    node_neighbor: dict[tuple[float, float], list[tuple[float, float]]],
-    region: tuple[float, float, float, float],
+    node_neighbor: dict,
+    region: list,
     filename: str,
     size: int = 512,
-    draw_nodes: bool = True
+    draw_nodes: bool = True,
+    line_thickness: int = 5
 ) -> None:
     """
-    Render a visual representation of a graph onto an image with:
-    - white lines for edges
-    - optionally, red dots for nodes
-
-    Args:
-        node_neighbor: Graph with pixel-based coordinates.
-        region: Tuple (min_lat, min_lon, max_lat, max_lon).
-        filename: Output filename for the visualization image.
-        size: Size of the square output image (default is 512).
-        draw_nodes: If True, draw red circles at each node location (default: True).
+    Renders a visual representation of a graph onto an image, ensuring correct
+    coordinate scaling and line thickness.
     """
-    # Create a 3-channel image for colored drawing
-    img = np.zeros((size, size, 3), dtype=np.uint8)
+    # Defensive check: if the graph is empty, save a black image and log a warning.
+    if not node_neighbor:
+        logging.warning(f"Input graph for {filename} is empty. Saving a black image.")
+        cv2.imwrite(filename, np.zeros((size, size, 3), dtype=np.uint8))
+        return
 
-    # Draw edges (white)
+    # Create a single-channel black canvas for drawing.
+    img = np.zeros((size, size), dtype=np.uint8)
+    
+    # Unpack region coordinates for clarity.
+    lat_st, lon_st, lat_ed, lon_ed = region
+    lon_range = lon_ed - lon_st
+    lat_range = lat_ed - lat_st
+
+    # Ensure no division by zero if the bounding box has no area.
+    if lon_range == 0 or lat_range == 0:
+        logging.error("Invalid bounding box with zero area. Cannot draw graph.")
+        return
+
+    # Draw the graph edges.
     for node, neighbors in node_neighbor.items():
-        x0 = int((node[1] - region[1]) / (region[3] - region[1]) * size)
-        y0 = int((region[2] - node[0]) / (region[2] - region[0]) * size)
+        # Correctly scale node coordinates to pixel space.
+        # Node format is assumed to be (latitude, longitude)
+        px_x0 = int(((node[1] - lon_st) / lon_range) * size)
+        px_y0 = int(((lat_ed - node[0]) / lat_range) * size) # Y is flipped for image coords
 
         for neighbor in neighbors:
-            x1 = int((neighbor[1] - region[1]) / (region[3] - region[1]) * size)
-            y1 = int((region[2] - neighbor[0]) / (region[2] - region[0]) * size)
+            px_x1 = int(((neighbor[1] - lon_st) / lon_range) * size)
+            px_y1 = int(((lat_ed - neighbor[0]) / lat_range) * size)
+            
+            # Draw a line with a base thickness of 2.
+            cv2.line(img, (px_x0, px_y0), (px_x1, px_y1), color=(255), thickness=2)
 
-            cv2.line(img, (x0, y0), (x1, y1), color=(255, 255, 255), thickness=2)
+    # Dilate the image to make road lines thicker for the segmentation mask.
+    if line_thickness > 0:
+        kernel = np.ones((line_thickness, line_thickness), np.uint8)
+        img = cv2.dilate(img, kernel, iterations=1)
 
-    # Optionally draw nodes (red)
+    # Convert to a 3-channel image for saving.
+    img_final = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    # Optionally draw red dots for nodes on top of the thickened lines.
     if draw_nodes:
         for node in node_neighbor:
-            x = int((node[1] - region[1]) / (region[3] - region[1]) * size)
-            y = int((region[2] - node[0]) / (region[2] - region[0]) * size)
-            cv2.circle(img, (x, y), radius=2, color=(0, 0, 255), thickness=-1)
+            px_x = int(((node[1] - lon_st) / lon_range) * size)
+            px_y = int(((lat_ed - node[0]) / lat_range) * size)
+            cv2.circle(img_final, (px_x, px_y), radius=3, color=(0, 0, 255), thickness=-1)
 
-    cv2.imwrite(filename, img)
+    cv2.imwrite(filename, img_final)
 
 
 def locate_stacking_road(graph: dict[Point, list[Point]]) -> tuple[dict[tuple[Edge, Edge], Point], dict[Point, list[Point]]]:
